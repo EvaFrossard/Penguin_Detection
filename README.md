@@ -1,7 +1,22 @@
 # Penguin_Detection
 The aim of this project is to create a real-time detector of the presses of a "penguin" muscular tonus sensor, to allow the automatic detection of responses during sleep-onset experiments.
 
+
 Detection runs on one EMG force channel at a time (e.g. "Right Thumb", "Left Thumb"), loaded directly from the raw BrainVision recording (`.vhdr`/`.eeg`/`.vmrk`) via `load_channel` in [helpers_detection.py](helpers_detection.py). Session-start markers and probe/inter-session gaps are read from the `.vmrk` file (`load_session_starts`, `load_exclusion_intervals`) and used to reset the baseline per session and suppress detection where a press can't legitimately occur.
+
+## Repository layout
+```text
+Scoring_Pingouin/ 
+  Subjects.csv # Contains a list of the subjects and their channels of interest
+  TT001_events.csv # List of the events obtained by manual detection
+  TT001_events_auto.csv # List of the events obtained by automatic detection
+  ...
+.gitignore
+README.md
+Scoring_Pingouin_Claude_V4.py # Ilona's GUI to visualize the channels and events
+detection.ipynb
+helpers_detection.py
+```
 
 ## Detection Algorithm
 
