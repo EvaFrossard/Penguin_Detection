@@ -19,3 +19,4 @@ __pycache__/
 Scoring_Pingouin/*_signal_cache.npz
 Scoring_Pingouin/*_state.json
 Scoring_Pingouin/*_auto_presses.csv
+/plots
