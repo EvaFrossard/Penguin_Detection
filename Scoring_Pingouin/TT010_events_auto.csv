@@ -1,0 +1,186 @@
+subject,session,event,channel,onset_s,offset_s,duration_s
+TT010,pre-session,Response,Right Thumb,1152.108,1153.748,1.64
+TT010,pre-session,Response,Right Thumb,1164.532,1167.212,2.68
+TT010,pre-session,Reset,Left Thumb,1165.816,1167.188,1.372
+TT010,pre-session,Response,Right Thumb,1178.792,1180.048,1.256
+TT010,pre-session,Reset,Left Thumb,1182.1,1182.994,0.894
+TT010,pre-session,Response,Right Thumb,1252.252,1253.52,1.268
+TT010,pre-session,Response,Right Thumb,1264.878,1265.938,1.06
+TT010,pre-session,Response,Right Thumb,1276.152,1277.248,1.096
+TT010,pre-session,Reset,Left Thumb,1280.29,1282.218,1.928
+TT010,pre-session,Response,Right Thumb,1294.08,1295.118,1.038
+TT010,pre-session,Response,Right Thumb,1608.178,1609.33,1.152
+TT010,pre-session,Response,Right Thumb,1638.536,1639.69,1.154
+TT010,pre-session,Response,Right Thumb,1668.07,1669.318,1.248
+TT010,pre-session,Response,Right Thumb,1699.668,1700.742,1.074
+TT010,pre-session,Response,Right Thumb,1732.078,1733.21,1.132
+TT010,pre-session,Response,Right Thumb,1765.488,1766.63,1.142
+TT010,pre-session,Response,Right Thumb,1800.264,1801.552,1.288
+TT010,pre-session,Response,Right Thumb,1839.958,1841.224,1.266
+TT010,pre-session,Response,Right Thumb,1881.32,1882.758,1.438
+TT010,pre-session,Response,Right Thumb,1923.83,1925.4,1.57
+TT010,pre-session,Response,Right Thumb,1964.75,1966.148,1.398
+TT010,pre-session,Response,Right Thumb,2009.556,2011.018,1.462
+TT010,pre-session,Response,Right Thumb,2050.524,2051.734,1.21
+TT010,pre-session,Response,Right Thumb,2108.944,2110.11,1.166
+TT010,pre-session,Response,Right Thumb,2149.45,2150.502,1.052
+TT010,pre-session,Reset,Left Thumb,2175.61,2176.462,0.852
+TT010,pre-session,Response,Right Thumb,2211.918,2213.232,1.314
+TT010,pre-session,Response,Right Thumb,2249.49,2250.968,1.478
+TT010,pre-session,Response,Right Thumb,2291.422,2292.64,1.218
+TT010,pre-session,Response,Right Thumb,2329.374,2330.418,1.044
+TT010,pre-session,Response,Right Thumb,2365.142,2366.316,1.174
+TT010,pre-session,Response,Right Thumb,2402.568,2403.766,1.198
+TT010,pre-session,Response,Right Thumb,2443.522,2444.6,1.078
+TT010,pre-session,Response,Right Thumb,2482.048,2482.878,0.83
+TT010,pre-session,Response,Right Thumb,2875.118,2876.166,1.048
+TT010,pre-session,Response,Right Thumb,2902.318,2903.354,1.036
+TT010,pre-session,Response,Right Thumb,2932.156,2933.388,1.232
+TT010,pre-session,Response,Right Thumb,2965.592,2966.786,1.194
+TT010,pre-session,Response,Right Thumb,2999.544,3001.366,1.822
+TT010,pre-session,Reset,Left Thumb,2999.608,2999.92,0.312
+TT010,pre-session,Reset,Left Thumb,3030.452,3031.44,0.988
+TT010,pre-session,Response,Right Thumb,3063.496,3064.43,0.934
+TT010,pre-session,Response,Right Thumb,3096.59,3097.768,1.178
+TT010,pre-session,Response,Right Thumb,3133.908,3135.06,1.152
+TT010,pre-session,Reset,Left Thumb,3145.556,3146.442,0.886
+TT010,pre-session,Reset,Left Thumb,3180.598,3181.574,0.976
+TT010,pre-session,Response,Right Thumb,3218.982,3220.15,1.168
+TT010,pre-session,Reset,Left Thumb,3240.052,3240.958,0.906
+TT010,pre-session,Reset,Left Thumb,3261.522,3262.476,0.954
+TT010,pre-session,Reset,Left Thumb,3275.968,3276.886,0.918
+TT010,pre-session,Reset,Left Thumb,3298.624,3299.698,1.074
+TT010,pre-session,Reset,Left Thumb,3317.204,3318.196,0.992
+TT010,pre-session,Reset,Left Thumb,3358.496,3359.514,1.018
+TT010,pre-session,Reset,Left Thumb,3386.454,3387.444,0.99
+TT010,pre-session,Reset,Left Thumb,3397.056,3398.018,0.962
+TT010,pre-session,Reset,Left Thumb,3422.168,3423.078,0.91
+TT010,pre-session,Response,Right Thumb,3477.16,3477.474,0.314
+TT010,pre-session,Response,Right Thumb,3504.742,3505.854,1.112
+TT010,pre-session,Reset,Left Thumb,3598.472,3599.288,0.816
+TT010,pre-session,Reset,Left Thumb,3611.264,3612.014,0.75
+TT010,pre-session,Reset,Left Thumb,3693.662,3694.534,0.872
+TT010,Session 2,Response,Right Thumb,4094.936,4095.994,1.058
+TT010,Session 2,Response,Right Thumb,4124.402,4125.45,1.048
+TT010,Session 2,Response,Right Thumb,4155.07,4156.206,1.136
+TT010,Session 2,Response,Right Thumb,4185.258,4186.308,1.05
+TT010,Session 2,Response,Right Thumb,4330.544,4331.45,0.906
+TT010,Session 2,Response,Right Thumb,4363.474,4363.85,0.376
+TT010,Session 2,Response,Right Thumb,4397.85,4398.894,1.044
+TT010,Session 2,Response,Right Thumb,4437.496,4438.622,1.126
+TT010,Session 2,Reset,Left Thumb,4466.718,4467.842,1.124
+TT010,Session 2,Response,Right Thumb,4503.44,4504.498,1.058
+TT010,Session 2,Reset,Left Thumb,4521.582,4522.626,1.044
+TT010,Session 2,Reset,Left Thumb,4533.452,4534.316,0.864
+TT010,Session 2,Reset,Left Thumb,4547.982,4548.88,0.898
+TT010,Session 2,Response,Right Thumb,4706.75,4707.782,1.032
+TT010,Session 2,Response,Right Thumb,4737.814,4738.918,1.104
+TT010,Session 2,Reset,Left Thumb,4774.046,4775.106,1.06
+TT010,Session 2,Reset,Left Thumb,4788.478,4789.392,0.914
+TT010,Session 2,Reset,Left Thumb,4810.378,4811.564,1.186
+TT010,Session 2,Reset,Left Thumb,4831.796,4832.1,0.304
+TT010,Session 2,Reset,Left Thumb,4855.95,4856.212,0.262
+TT010,Session 2,Response,Right Thumb,4985.49,4986.394,0.904
+TT010,Session 2,Response,Right Thumb,5020.186,5021.286,1.1
+TT010,Session 2,Response,Right Thumb,5052.104,5053.182,1.078
+TT010,Session 2,Reset,Left Thumb,5090.5,5091.388,0.888
+TT010,Session 2,Response,Right Thumb,5322.406,5323.474,1.068
+TT010,Session 2,Response,Right Thumb,5355.138,5356.064,0.926
+TT010,Session 2,Reset,Left Thumb,5375.35,5376.19,0.84
+TT010,Session 2,Reset,Left Thumb,5390.262,5391.17,0.908
+TT010,Session 2,Reset,Left Thumb,5407.88,5408.726,0.846
+TT010,Session 2,Response,Right Thumb,5533.162,5534.294,1.132
+TT010,Session 2,Reset,Left Thumb,5564.086,5564.894,0.808
+TT010,Session 2,Reset,Left Thumb,5579.074,5579.29,0.216
+TT010,Session 2,Reset,Left Thumb,5799.724,5800.63,0.906
+TT010,Session 2,Reset,Left Thumb,5824.81,5825.616,0.806
+TT010,Session 2,Reset,Left Thumb,5846.418,5847.482,1.064
+TT010,Session 2,Reset,Left Thumb,6038.914,6039.922,1.008
+TT010,Session 2,Reset,Left Thumb,6060.312,6061.29,0.978
+TT010,Session 2,Reset,Left Thumb,6083.914,6084.758,0.844
+TT010,Session 2,Response,Right Thumb,6201.836,6203.274,1.438
+TT010,Session 2,Reset,Left Thumb,6221.18,6222.384,1.204
+TT010,Session 2,Reset,Left Thumb,6258.958,6259.958,1.0
+TT010,Session 2,Reset,Left Thumb,6290.856,6291.114,0.258
+TT010,Session 2,Reset,Left Thumb,6321.154,6321.426,0.272
+TT010,Session 2,Response,Right Thumb,6440.904,6442.16,1.256
+TT010,Session 2,Reset,Left Thumb,6451.664,6452.684,1.02
+TT010,Session 2,Reset,Left Thumb,6471.588,6472.606,1.018
+TT010,Session 2,Reset,Left Thumb,6894.056,6894.222,0.166
+TT010,Session 2,Response,Right Thumb,7089.734,7090.592,0.858
+TT010,Session 2,Response,Right Thumb,7118.786,7119.754,0.968
+TT010,Session 2,Reset,Left Thumb,7136.098,7136.952,0.854
+TT010,Session 2,Response,Right Thumb,7165.72,7166.576,0.856
+TT010,Session 2,Response,Right Thumb,7197.048,7198.028,0.98
+TT010,Session 2,Reset,Left Thumb,7216.458,7217.32,0.862
+TT010,Session 2,Response,Right Thumb,7432.446,7433.418,0.972
+TT010,Session 2,Reset,Left Thumb,7471.926,7472.716,0.79
+TT010,Session 2,Reset,Left Thumb,7494.68,7495.428,0.748
+TT010,Session 2,Reset,Left Thumb,7506.292,7507.004,0.712
+TT010,Session 2,Reset,Left Thumb,7551.782,7552.424,0.642
+TT010,Session 2,Reset,Left Thumb,7769.198,7770.13,0.932
+TT010,Session 2,Reset,Left Thumb,7808.02,7808.81,0.79
+TT010,Session 2,Reset,Left Thumb,7986.676,7987.39,0.714
+TT010,Session 2,Response,Right Thumb,8036.64,8037.818,1.178
+TT010,Session 2,Response,Right Thumb,8251.126,8252.934,1.808
+TT010,Session 2,Response,Right Thumb,8265.67,8266.654,0.984
+TT010,Session 2,Response,Right Thumb,8293.2,8294.124,0.924
+TT010,Session 2,Response,Right Thumb,8324.75,8325.64,0.89
+TT010,Session 2,Response,Right Thumb,8354.854,8355.198,0.344
+TT010,Session 2,Reset,Left Thumb,8369.306,8369.478,0.172
+TT010,Session 2,Reset,Left Thumb,8380.244,8380.836,0.592
+TT010,Session 2,Reset,Left Thumb,8414.562,8414.72,0.158
+TT010,Session 2,Response,Right Thumb,8531.014,8532.04,1.026
+TT010,Session 2,Response,Right Thumb,8558.824,8559.842,1.018
+TT010,Session 2,Response,Right Thumb,8588.998,8590.148,1.15
+TT010,Session 2,Response,Right Thumb,8617.944,8618.9,0.956
+TT010,Session 2,Reset,Left Thumb,8630.32,8631.06,0.74
+TT010,Session 2,Reset,Left Thumb,8649.172,8650.16,0.988
+TT010,Session 2,Reset,Left Thumb,8675.53,8676.358,0.828
+TT010,Session 2,Response,Right Thumb,8699.184,8700.174,0.99
+TT010,Session 2,Reset,Left Thumb,8716.262,8717.102,0.84
+TT010,Session 2,Reset,Left Thumb,8725.248,8726.044,0.796
+TT010,Session 2,Reset,Left Thumb,9090.73,9091.426,0.696
+TT010,Session 2,Reset,Left Thumb,9102.526,9103.214,0.688
+TT010,Session 2,Reset,Left Thumb,9121.946,9122.762,0.816
+TT010,Session 2,Reset,Left Thumb,9134.236,9134.954,0.718
+TT010,Session 2,Response,Right Thumb,9241.886,9242.858,0.972
+TT010,Session 2,Response,Right Thumb,9266.802,9267.924,1.122
+TT010,Session 2,Response,Right Thumb,9296.72,9297.846,1.126
+TT010,Session 3,Response,Right Thumb,10072.032,10073.006,0.974
+TT010,Session 3,Response,Right Thumb,10092.506,10093.44,0.934
+TT010,Session 3,Response,Right Thumb,10115.818,10116.778,0.96
+TT010,Session 3,Response,Right Thumb,10146.468,10147.222,0.754
+TT010,Session 3,Response,Right Thumb,10168.102,10168.938,0.836
+TT010,Session 3,Response,Right Thumb,10190.41,10191.154,0.744
+TT010,Session 3,Response,Right Thumb,10210.344,10211.026,0.682
+TT010,Session 3,Response,Right Thumb,10232.082,10232.892,0.81
+TT010,Session 3,Response,Right Thumb,10255.128,10256.006,0.878
+TT010,Session 3,Response,Right Thumb,10277.65,10278.368,0.718
+TT010,Session 3,Response,Right Thumb,10298.114,10298.984,0.87
+TT010,Session 3,Response,Right Thumb,10320.138,10320.768,0.63
+TT010,Session 3,Response,Right Thumb,10342.854,10343.524,0.67
+TT010,Session 3,Response,Right Thumb,10365.422,10366.136,0.714
+TT010,Session 3,Response,Right Thumb,10386.644,10387.546,0.902
+TT010,Session 3,Response,Right Thumb,10418.204,10418.872,0.668
+TT010,Session 3,Response,Right Thumb,10442.92,10443.176,0.256
+TT010,Session 3,Response,Right Thumb,10466.47,10467.356,0.886
+TT010,Session 3,Response,Right Thumb,10488.59,10489.53,0.94
+TT010,Session 3,Response,Right Thumb,10510.642,10511.446,0.804
+TT010,Session 3,Response,Right Thumb,10532.826,10533.788,0.962
+TT010,Session 3,Response,Right Thumb,10556.566,10557.362,0.796
+TT010,Session 3,Response,Right Thumb,10580.046,10581.076,1.03
+TT010,Session 3,Response,Right Thumb,10607.172,10608.146,0.974
+TT010,Session 3,Response,Right Thumb,10631.474,10631.774,0.3
+TT010,Session 3,Response,Right Thumb,10653.69,10654.52,0.83
+TT010,Session 3,Response,Right Thumb,10678.654,10679.472,0.818
+TT010,Session 3,Response,Right Thumb,10704.576,10705.52,0.944
+TT010,Session 3,Response,Right Thumb,10728.364,10729.382,1.018
+TT010,Session 3,Response,Right Thumb,10751.578,10752.508,0.93
+TT010,Session 3,Response,Right Thumb,10776.256,10776.602,0.346
+TT010,Session 3,Response,Right Thumb,10801.202,10802.124,0.922
+TT010,Session 3,Response,Right Thumb,10828.054,10829.088,1.034
+TT010,Session 3,Response,Right Thumb,10854.292,10855.234,0.942
+TT010,Session 3,Response,Right Thumb,10878.696,10879.632,0.936
+TT010,Session 3,Response,Right Thumb,10904.878,10905.828,0.95
+TT010,Session 3,Response,Right Thumb,10929.556,10930.454,0.898
