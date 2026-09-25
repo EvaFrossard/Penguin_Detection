@@ -1,4 +1,6 @@
 from pathlib import Path
+from dataclasses import dataclass
+import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -177,6 +179,99 @@ def rolling_baseline(x: np.ndarray, fs: float, window_s: float,
         med[a:b], sigma[a:b] = _rolling_baseline_1d(x[a:b], win)
     return med, sigma
 
+
+@dataclass(frozen=True)
+class DetectorParams:
+    """Tuning parameters of the press detector (see detect_presses for their meaning)."""
+    k_high: float = 5.0
+    k_low: float = 2.5
+    min_duration_s: float = 0.08
+    max_duration_s: float = 2.5
+    refractory_s: float = 0.15
+    floor_max: float = 200.0
+    floor_min: float = 20.0
+    quiet_s: float = 60.0
+    decay_rate: float = 0.9
+    rise_frac: float = 0.3
+    rise_alpha: float = 0.1
+
+
+class DetectorState:
+    """Everything the detector remembers from one sample to the next, for one channel."""
+    __slots__ = ("state", "onset_t", "peak", "refractory_until",
+                 "floor", "applied_floor", "last_signal_t", "last_decay_t")
+
+    def __init__(self, params: DetectorParams, t0: float):
+        self.state = "REST"
+        self.onset_t = self.peak = None      # onset time and peak amplitude of the current candidate press
+        self.refractory_until = -np.inf
+        self.floor = params.floor_max        # adaptive floor
+        self.applied_floor = self.floor      # floor used on the last sample (before any rise at that sample)
+        self.last_signal_t = t0              # last confirmed press, or last reset
+        self.last_decay_t = t0
+
+
+def _step_detector(st: DetectorState, t_i, x_i, med_i, sigma_i, p: DetectorParams,
+                   new_session=False, excluded=False):
+    """Advance the detector by one sample. Used by both detect_presses (offline, over a whole recording) and
+    live_detection.py (live, one sample at a time), so the two give identical results on the same samples.
+
+    `new_session`: this is the first sample of a new session -> reset the adaptive floor.
+    `excluded`: this sample is inside a probe or an inter-session gap -> no press can be detected.
+
+    Updates `st` in place and returns (st, press): `press` is None, or a dict {"onset_t", "offset_t", "peak_amp",
+    "rejected"} when a press ends at this sample. Rejected (too long) presses are returned too.
+    """
+    if new_session: # new session -> reset
+        st.floor = p.floor_max
+        st.last_signal_t = st.last_decay_t = t_i
+
+    if t_i - max(st.last_signal_t, st.last_decay_t) >= p.quiet_s: # no confirmed press for quiet_s seconds -> decay
+        st.floor = max(med_i + p.floor_min, st.floor * p.decay_rate)
+        st.last_decay_t = t_i
+
+    st.applied_floor = st.floor
+
+    if excluded: # inside a probe or an inter-session gap -> no detection possible
+        st.state = "REST"  # silently drops any in-progress candidate/active press
+        return st, None
+
+    # Calculate the high and low thresholds for the current sample
+    hi = min(max(med_i + p.k_high * sigma_i, med_i + st.floor), med_i + 400.0)
+    lo = min(med_i + p.k_low * sigma_i, med_i + 100)
+    if math.isnan(hi):
+        return st, None
+
+    press = None
+    if st.state == "REST":
+        if t_i >= st.refractory_until and x_i >= hi:
+            st.state, st.onset_t, st.peak = "CANDIDATE", t_i, x_i
+
+    elif st.state == "CANDIDATE":
+        st.peak = max(st.peak, x_i)
+        if x_i < lo:
+            st.state = "REST"
+        elif t_i - st.onset_t >= p.min_duration_s:
+            st.state = "ACTIVE"
+
+    elif st.state == "ACTIVE":
+        st.peak = max(st.peak, x_i)
+        too_long = (t_i - st.onset_t) > p.max_duration_s
+        if x_i < lo or too_long:
+            press = {"onset_t": st.onset_t, "offset_t": t_i, "peak_amp": st.peak, "rejected": too_long}
+            if not too_long: # confirmed press -> update adaptive floor
+                st.floor = min(max(p.rise_alpha * st.floor + (1 - p.rise_alpha) * (p.rise_frac * st.peak),
+                    p.floor_min), p.floor_max) # smoothly rise toward rise_frac * peak_amp, but stay within [floor_min, floor_max]
+                st.last_signal_t = t_i
+            st.state, st.refractory_until = "REFRACTORY", t_i + p.refractory_s
+
+    elif st.state == "REFRACTORY":
+        if t_i >= st.refractory_until:
+            st.state = "REST"
+
+    return st, press
+
+
 def detect_presses(t, x, med, sigma, k_high=5.0, k_low=2.5, min_duration_s=0.08, max_duration_s=2.5, refractory_s=0.15,
                    session_starts=None, floor_max=200.0, floor_min=20.0, quiet_s=60.0, decay_rate=0.9, rise_frac=0.3,
                    rise_alpha=0.1, exclusion_intervals=None):
@@ -246,69 +341,25 @@ def detect_presses(t, x, med, sigma, k_high=5.0, k_low=2.5, min_duration_s=0.08,
         ia, ib = np.searchsorted(t, [a, b])
         excluded[ia:ib] = True
 
+    params = DetectorParams(k_high, k_low, min_duration_s, max_duration_s, refractory_s,
+                            floor_max, floor_min, quiet_s, decay_rate, rise_frac, rise_alpha)
+    st = DetectorState(params, t[0] if n else 0.0)
     floor = np.empty(n)
-    cur_floor = floor_max
-    last_signal_t = t[0] if n else 0.0   # last confirmed press, or last reset
-    last_decay_t = last_signal_t
     prev_sess = sess_idx[0] if n else 0
-
     presses = []
-    state = "REST"
-    onset_i = peak = None # index of the current candidate press, and its peak amplitude
-    refractory_until = -np.inf
+
+    # Plain Python lists: much faster to index one element at a time than numpy arrays (same float64 values)
+    t_l, x_l, med_l, sigma_l = t.tolist(), x.tolist(), med.tolist(), sigma.tolist()
+    sess_l, excl_l = sess_idx.tolist(), excluded.tolist()
 
     for i in range(n):
-        ti, xi = t[i], x[i]
-
-        if sess_idx[i] != prev_sess: # new session -> reset
-            cur_floor = floor_max
-            last_signal_t = last_decay_t = ti
-            prev_sess = sess_idx[i]
-
-        if ti - max(last_signal_t, last_decay_t) >= quiet_s: # no confirmed press for quiet_s seconds -> decay
-            cur_floor = max(med[i] +floor_min, cur_floor * decay_rate)
-            last_decay_t = ti
-
-        floor[i] = cur_floor
-
-        if excluded[i]: # inside a probe or an inter-session gap -> no detection possible
-            state = "REST"  # silently drops any in-progress candidate/active press
-            continue
-
-        # Calculate the high and low thresholds for the current sample
-        hi = min(max(med[i] + k_high * sigma[i], med[i] + cur_floor),med[i] + 400.0)
-        lo = min(med[i] + k_low * sigma[i], med[i] + 100)
-        if np.isnan(hi):
-            continue
-
-        if state == "REST":
-            if ti >= refractory_until and xi >= hi:
-                state, onset_i, peak = "CANDIDATE", i, xi
-
-        elif state == "CANDIDATE":
-            peak = max(peak, xi)
-            if xi < lo:
-                state = "REST"
-            elif ti - t[onset_i] >= min_duration_s:
-                state = "ACTIVE"
-
-        elif state == "ACTIVE":
-            peak = max(peak, xi)
-            too_long = (ti - t[onset_i]) > max_duration_s
-            if xi < lo or too_long:
-                presses.append({
-                    "onset_t": t[onset_i], "offset_t": ti,
-                    "peak_amp": peak, "rejected": too_long,
-                })
-                if not too_long: # confirmed press -> update adaptive floor
-                    cur_floor = min(max(rise_alpha * cur_floor + (1 - rise_alpha) * (rise_frac * peak),
-                        floor_min), floor_max) # smoothly rise toward rise_frac * peak_amp, but stay within [floor_min, floor_max]
-                    last_signal_t = ti
-                state, refractory_until = "REFRACTORY", ti + refractory_s
-
-        elif state == "REFRACTORY":
-            if ti >= refractory_until:
-                state = "REST"
+        new_session = sess_l[i] != prev_sess
+        prev_sess = sess_l[i]
+        _, press = _step_detector(st, t_l[i], x_l[i], med_l[i], sigma_l[i], params,
+                                  new_session=new_session, excluded=excl_l[i])
+        floor[i] = st.applied_floor
+        if press is not None:
+            presses.append(press)
 
     return presses, floor
 
