@@ -1,0 +1,14 @@
+subject,file,start,end,crop_start_s,duration_min
+TT001,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT001_filtered.edf,0,120000,5044.502,20.0
+TT002,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT002_filtered.edf,120000,240000,3050.116,20.0
+TT004,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT004_filtered.edf,240000,360000,4177.46,20.0
+TT005,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT005_filtered.edf,360000,480000,5465.768,20.0
+TT006,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT006_filtered.edf,480000,600000,3004.666,20.0
+TT007,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT007_filtered.edf,600000,720000,3342.324,20.0
+TT008,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT008_filtered.edf,720000,840000,5245.434,20.0
+TT009,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT009_filtered.edf,840000,960000,4063.002,20.0
+TT010,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT010_filtered.edf,960000,1080000,4063.358,20.0
+TT011,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT011_filtered.edf,1080000,1200000,4698.744,20.0
+TT012,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT012_filtered.edf,1200000,1320000,3313.128,20.0
+TT013,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT013_a_filtered.edf,1320000,1440000,5070.866,20.0
+TT014,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT014_a_filtered.edf,1440000,1560000,3473.58,20.0
