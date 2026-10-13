@@ -1,126 +1,255 @@
 """
-DOZE Full EEG preprocessing pipeline
-=====================================
-- Load raw EEG data (30s segments) from Full_EEG/raw
-- Preprocess and save the data (filter, notch, reference, interpolate bad channels)
+Full EEG preprocessing pipeline
+===============================
+- Load the raw recordings (EEG/<name>_filtered.edf, 500 Hz)
+- Notch + band-pass filter, downsample, interpolate bad channels, average reference
+- Mark bad time spans as 'BAD_segment' annotations
+- Save the result next to the raw file as EEG/<name>_preprocessed.fif
+
+Bad channels, bad time spans and recordings to discard are read from
+bad_segments_channels.csv (filled from preprocessing.ipynb or by hand).
+Run this file directly to preprocess every recording.
 """
 
 import mne
 import os
 import ast
-import re
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────────
-BASE_DIR        = r"C:\Users\eva\Documents\Master\ICM\Nico"
-DIR_RAW_DATA    = r"C:\Users\eva\Documents\Master\ICM\Nico\Full_EEG\raw"
-DIR_PREPROC     = r"C:\Users\eva\Documents\Master\ICM\Nico\Full_EEG\preproc"
-QC_CSV          = r"C:\Users\Bruker\Documents\DOZE\Preprocessing\bad_segments_channels.csv" # TODO: modify path to QC CSV file
-
+DIR_EEG         = Path(r"C:\Users\eva\Documents\Master\ICM\Ilo\EEG")
+QC_CSV          = Path(r"C:\Users\eva\Documents\Master\ICM\Ilo\GLHMM\bad_segments_channels.csv")
+RAW_SUFFIX      = ".edf"
+PREPROC_SUFFIX  = "_preprocessed.fif"
 
 # Preprocessing
-REMOVE_BAD_CHANNELS = False
-L_FREQ     = 0.3
+L_FREQ     = 1
 H_FREQ     = 40.0
 NOTCH_FREQ = 50.0
 REFERENCE  = "average"
+TARGET_FS  = 100   # Hz: downsampling rate
 
-# Channels that are physiological (not EEG) — excluded from power computation
-PHYSIO_CHAN = [
-    'IO', 'EMG chin', 'EMG arm', 'ECG',
-    'Thumb', 'Index+Middle', 'Ring+Pinky', 'Respi',
-]
+# Every channel is typed 'eeg' in the EDF header, so the non-EEG ones are retyped by name
+CHANNEL_TYPES = {
+    'IO': 'eog', 'EMG': 'emg', 'ECG': 'ecg', 'Respi': 'resp',
+    'L_IndexMid': 'misc', 'L_RingPink': 'misc', 'L_Thumb': 'misc', 'R_RingPink': 'misc', 'R_Thumb': 'misc',
+    'Left Index+Middl': 'misc', 'Left Ring+Pinky': 'misc', 'Left Thumb': 'misc',
+    'Right Ring+Pinky': 'misc', 'Right Thumb': 'misc',
+}
 
-TOTAL_EEG_CHANNELS = 64   # used to compute bad_channel_fraction
-HIGH_BAD_THRESHOLD = 0.30  # fraction above which high_bad_channel_load = True
+HIGH_BAD_THRESHOLD = 0.30  # fraction of bad EEG channels above which the whole recording is discarded
+
+# Bad time spans: samples where more than BAD_SPAN_CH_FRACTION of the EEG channels exceed +-BAD_SPAN_AMP_UV
+BAD_SPAN_AMP_UV      = 250.0
+BAD_SPAN_CH_FRACTION = 0.10
+BAD_SPAN_PAD_S       = 1.0   # margin added on each side of a detected span
+BAD_SPAN_LABEL       = "BAD_segment"
 # ───────────────────────────────────────────────────────────────────────────────
 
-os.makedirs(DIR_RAW_DATA, exist_ok=True)
-os.makedirs(DIR_PREPROC, exist_ok=True)
 
-# ── HELPERS ───────────────────────────────────────────────────────────────────
+# ── QC TABLE ──────────────────────────────────────────────────────────────────
 
 def load_qc_table(qc_csv):
-    """Load bad_segments_channels.csv, return dict keyed by filename."""
+    """Load bad_segments_channels.csv, return dict keyed by filename.
+
+    bad_spans is a list of [start_s, end_s] (seconds from the start of the
+    recording), or None when the spans of that file have not been set yet.
+    """
     if not os.path.exists(qc_csv):
         return {}
     qc = pd.read_csv(qc_csv)
 
-    qc['bad_channels'] = qc['bad_channels'].apply(
-        lambda x: ast.literal_eval(x)
-        if isinstance(x, str) and x.strip().startswith('[') else []
-    )
+    def parse_list(x, default):
+        return ast.literal_eval(x) if isinstance(x, str) and x.strip().startswith('[') else default
+
+    qc['bad_channels'] = qc['bad_channels'].apply(parse_list, default=[])
 
     qc['bad_segment'] = qc['bad_segment'].map(
         {True: True, False: False, 'True': True, 'False': False}
     ).fillna(False)
 
+    if 'bad_spans' not in qc:
+        qc['bad_spans'] = None
+    qc['bad_spans'] = qc['bad_spans'].apply(parse_list, default=None).astype(object)
+
     return qc.set_index('filename').to_dict('index')
+
+
+def save_qc_entry(qc_csv, filename, bad_channels, bad_segment=False, bad_spans=None):
+    """Write (or replace) the row of one file in bad_segments_channels.csv.
+
+    bad_spans=None keeps the spans already stored for that file.
+    """
+    cols = ['filename', 'bad_segment', 'bad_channels', 'bad_spans']
+    qc = pd.read_csv(qc_csv) if os.path.exists(qc_csv) else pd.DataFrame(columns=cols)
+    if 'bad_spans' not in qc:
+        qc['bad_spans'] = np.nan
+    old = qc[qc['filename'] == filename]
+    if bad_spans is None:
+        spans = old['bad_spans'].iloc[0] if len(old) else np.nan
+    else:
+        spans = str([[float(a), float(b)] for a, b in bad_spans])
+    row = pd.DataFrame([[filename, bool(bad_segment), str(list(bad_channels)), spans]], columns=cols)
+    qc = pd.concat([qc[qc['filename'] != filename].astype(object), row.astype(object)], ignore_index=True)
+    qc.sort_values('filename')[cols].to_csv(qc_csv, index=False)
+
+
+# ── HELPERS ───────────────────────────────────────────────────────────────────
+
+def _eeg_names(raw):
+    return [raw.ch_names[i] for i in mne.pick_types(raw.info, eeg=True, exclude=[])]
+
+
+def load_edf(path, preload=False):
+    """Read one raw EDF with correct channel types and standard 10-20 electrode positions."""
+    raw = mne.io.read_raw_edf(path, preload=preload, verbose=False)
+    raw.set_channel_types({ch: t for ch, t in CHANNEL_TYPES.items() if ch in raw.ch_names}, verbose=False)
+    raw.set_montage('standard_1020', verbose=False)
+    return raw
+
+
+def detect_bad_channels(raw, high_ratio=4.0, flat_uv=1):
+    """Propose bad EEG channels from their amplitude.
+
+    Run it on filtered data that is NOT yet average-referenced. A channel is
+    proposed when its robust SD (MAD-based) is more than `high_ratio` times the
+    median over channels, or below `flat_uv` microvolts.
+    Returns (list of proposed bad channels, Series of robust SD in microvolts).
+    """
+    eeg_names = _eeg_names(raw)
+    data = raw.get_data(picks=eeg_names) * 1e6
+    sd = 1.4826 * np.median(np.abs(data - np.median(data, axis=1, keepdims=True)), axis=1)
+    robust_sd = pd.Series(sd, index=eeg_names)
+    bad = (robust_sd > high_ratio * robust_sd.median()) | (robust_sd < flat_uv)
+    return list(robust_sd.index[bad]), robust_sd
+
+
+def detect_bad_spans(raw, amp_uv=BAD_SPAN_AMP_UV, ch_fraction=BAD_SPAN_CH_FRACTION, pad_s=BAD_SPAN_PAD_S):
+    """Propose bad time spans from the amplitude of the EEG channels.
+
+    Run it on fully preprocessed data (bad channels interpolated, average
+    reference). A sample is bad when more than `ch_fraction` of the EEG
+    channels exceed +-`amp_uv` microvolts; `pad_s` is added on each side.
+    Returns a list of [start_s, end_s], in seconds from the start of `raw`.
+    """
+    sfreq = raw.info['sfreq']
+    data = raw.get_data(picks=_eeg_names(raw))
+    bad = (np.abs(data) > amp_uv * 1e-6).mean(axis=0) > ch_fraction
+    del data
+    pad = int(round(pad_s * sfreq))
+    bad = np.convolve(bad, np.ones(2 * pad + 1), mode='same') > 0
+    edges = np.flatnonzero(np.diff(np.r_[0, bad.astype(int), 0]))
+    return [[round(a / sfreq, 2), round(b / sfreq, 2)] for a, b in zip(edges[::2], edges[1::2])]
+
+
+def set_bad_spans(raw, bad_spans):
+    """Replace the bad-span annotations of `raw` by `bad_spans` ([start_s, end_s] from the start of raw)."""
+    keep = [i for i, d in enumerate(raw.annotations.description)
+            if not d.upper().startswith('BAD') or d.upper() == 'BAD_ACQ_SKIP']
+    annot = raw.annotations[keep]
+    for a, b in bad_spans:
+        annot.append(raw.first_time + a, b - a, BAD_SPAN_LABEL)
+    raw.set_annotations(annot, verbose=False)
+    return raw
+
+
+def get_bad_spans(raw):
+    """Return the bad spans annotated on `raw` as [start_s, end_s] from the start of raw.
+
+    Every annotation starting with 'BAD' counts, except the acquisition skips written by the amplifier.
+    """
+    spans = [[round(float(o - raw.first_time), 2), round(float(o - raw.first_time + d), 2)]
+             for o, d, desc in zip(raw.annotations.onset, raw.annotations.duration, raw.annotations.description)
+             if desc.upper().startswith('BAD') and desc.upper() != 'BAD_ACQ_SKIP']
+    return sorted(spans)
+
+
+def interpolate_and_reference(raw, bad_channels=(), montage="standard_1020"):
+    """Interpolate bad channels, then re-reference a preloaded Raw in place.
+
+    Non-EEG channels must be dropped or typed correctly beforehand, otherwise
+    they end up in the average reference.
+    """
+    bads = [ch for ch in bad_channels if ch in raw.ch_names]
+    if bads:
+        if raw.get_montage() is None:  # interpolation needs electrode positions
+            raw.set_montage(montage, on_missing='ignore', verbose=False)
+        raw.info['bads'] = bads
+        raw.interpolate_bads(reset_bads=True, verbose=False)
+    raw.set_eeg_reference(REFERENCE, projection=False, verbose=False)
+    return raw
+
+
+def filter_raw(raw):
+    """Notch and band-pass the EEG channels of a preloaded Raw in place."""
+    eeg_names = _eeg_names(raw)
+    raw.notch_filter(NOTCH_FREQ, picks=eeg_names, verbose=False)
+    raw.filter(l_freq=L_FREQ, h_freq=H_FREQ, picks=eeg_names, verbose=False)
+    return raw
+
+
+def preprocess_raw(raw, bad_channels=(), montage="standard_1020"):
+    """Interpolate bad channels, re-reference, notch and band-pass a preloaded Raw in place."""
+    interpolate_and_reference(raw, bad_channels, montage)
+    return filter_raw(raw)
+
 
 # ── MAIN PIPELINE ─────────────────────────────────────────────────────────────
 
-subjects = sorted(
-    d for d in os.listdir(DIR_RAW_DATA)
-    if os.path.isdir(os.path.join(DIR_RAW_DATA, d))
-)
-print(f"Found {len(subjects)} participant folder(s): {subjects}\n")
+def preprocess_recording(raw, bad_channels=(), bad_spans=None):
+    """Full preprocessing of one preloaded raw recording, in place.
 
-needs_bad_ch_marking = [] 
-if REMOVE_BAD_CHANNELS:
-    print("IMPLEMENT BAD CHANNEL REMOVAL FUNCTIONALITY HERE\n")
-    # TODO: Implement functionality to remove bad channels from the data based on QC table
-        #     qc = qc_table[fname_30s]
+    Filter, downsample, interpolate `bad_channels`, average reference, then
+    annotate the bad spans (detected automatically when `bad_spans` is None).
+    Returns (raw, bad_spans).
+    """
+    filter_raw(raw)
+    raw.resample(TARGET_FS, verbose=False)  # after the low-pass, so nothing aliases
+    interpolate_and_reference(raw, bad_channels)
+    if bad_spans is None:
+        bad_spans = detect_bad_spans(raw)
+    set_bad_spans(raw, bad_spans)
+    return raw, bad_spans
 
-        # if qc.get('bad_segment', False):
-        #     print(f"    Probe {probe_idx:02d}: flagged as bad segment — skipping preprocessing")
-        #     matches = df.index[df['segment_id'] == segment_id].tolist()
-        #     if matches:
-        #         df.at[matches[0], 'bad_segment'] = True
-        #     continue
-        #     bad_chs = qc.get('bad_channels', [])
-        # if not isinstance(bad_chs, list):
-        #     bad_chs = []
 
-        # if bad_chs:
-        #     available = [ch for ch in bad_chs if ch in raw_seg.ch_names]
-        #     raw_seg.info['bads'] = available
-        #     raw_seg.interpolate_bads(reset_bads=True, verbose=False)
+def preprocess_all(data_dir=DIR_EEG, qc_csv=QC_CSV):
+    """Preprocess every raw recording of `data_dir` and save it next to it as *_preproc_raw.fif.
 
-        #     # Write QC columns to CSV
-        # n_bad = len(bad_chs)
-        # matches = df.index[df['segment_id'] == segment_id].tolist()
-        # if matches:
-        #     row_i = matches[0]
-        #     df.at[row_i, 'bad_segment']          = qc.get('bad_segment', False)
-        #     df.at[row_i, 'n_bad_channels']        = n_bad
-        #     df.at[row_i, 'bad_channel_fraction']  = n_bad / TOTAL_EEG_CHANNELS
-        #     df.at[row_i, 'high_bad_channel_load'] = (n_bad / TOTAL_EEG_CHANNELS) > HIGH_BAD_THRESHOLD
-        #     df.at[row_i, 'bad_channels']          = str(bad_chs)
+    Recordings flagged bad_segment in the QC table are skipped. Spans detected
+    automatically are written back to the QC table so they can be reviewed.
+    """
+    data_dir = Path(data_dir)
+    files = sorted(data_dir.glob(f"*{RAW_SUFFIX}"))
+    print(f"Found {len(files)} recording(s) in {data_dir}\n")
 
-        # print(
-        #     f"    Probe {probe_idx:02d}: preprocessed → {fname_10s} "
-        #     f"({n_bad} channel(s) interpolated)"
-        # )
+    for path in files:
+        qc = load_qc_table(qc_csv).get(path.name, {})
+        path_out = path.with_name(path.name.replace(RAW_SUFFIX, PREPROC_SUFFIX))
+        if qc.get('bad_segment', False):
+            print(f"{path.name}: flagged as bad recording, skipped")
+            path_out.unlink(missing_ok=True)  # do not leave an outdated preprocessed file behind
+            continue
 
-for subj in subjects:
-    print(f"\n  Preprocessing data")
-    subj_missing_qc = []
+        raw = load_edf(path, preload=True)
+        if np.isnan(raw.get_data()).any():
+            print(f"{path.name}: contains NaN, skipped")
+            continue
 
-    path_raw = os.path.join(DIR_RAW_DATA, subj, f"{subj}.vhdr")
-    path_preproc = os.path.join(DIR_PREPROC, subj, f"{subj}.fif")
-    os.makedirs(os.path.dirname(path_preproc), exist_ok=True)
-    print(f"Subject's path: {path_raw}")
-    print(f"Preprocessed data path: {path_preproc}")
+        bad_channels = qc.get('bad_channels', [])
+        spans_reviewed = qc.get('bad_spans') is not None
+        raw, bad_spans = preprocess_recording(raw, bad_channels, qc.get('bad_spans'))
+        raw.save(path_out, overwrite=True, verbose=False)
+        if not spans_reviewed:
+            save_qc_entry(qc_csv, path.name, bad_channels, False, bad_spans)
 
-    raw_seg = mne.io.read_raw_brainvision(path_raw, preload=True, verbose=False)
-    eeg_picks = mne.pick_types(raw_seg.info, eeg=True, exclude=[])
-    eeg_names = [raw_seg.ch_names[i] for i in eeg_picks]
+        bad_s = sum(b - a for a, b in bad_spans)
+        print(f"{path.name} -> {path_out.name}: {len(bad_channels)} channel(s) interpolated, "
+              f"{len(bad_spans)} bad span(s) = {bad_s:.0f} s ({bad_s / raw.times[-1]:.1%}, "
+              f"{'from the QC table' if spans_reviewed else 'detected automatically'})")
+        del raw
 
-    raw_seg.set_eeg_reference(REFERENCE, projection=False, verbose=False)
-    raw_seg.notch_filter(NOTCH_FREQ, picks=eeg_names, verbose=False)
-    raw_seg.filter(l_freq=L_FREQ, h_freq=H_FREQ, picks=eeg_names, verbose=False)
-    raw_seg.save(path_preproc, overwrite=True, verbose=False)
 
-    if subj_missing_qc:
-        needs_bad_ch_marking.append((subj, subj_missing_qc))
+if __name__ == "__main__":
+    preprocess_all()
