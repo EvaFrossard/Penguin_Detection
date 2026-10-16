@@ -2,15 +2,16 @@
 Full EEG preprocessing pipeline
 ===============================
 - Load the raw recordings (EEG/<name>_filtered.edf, 500 Hz)
-- Notch + band-pass filter, downsample, remove the ocular and cardiac ICA components,
-  interpolate bad channels, average reference
+- Notch + band-pass filter, downsample, remove the ocular and cardiac ICA components, interpolate bad channels, average 
+reference
 - Mark bad time spans as 'BAD_segment' annotations
 - Save the result next to the raw file as EEG/<name>_preprocessed.fif
 
-Bad channels, bad time spans and recordings to discard are read from
-bad_segments_channels.csv (filled from preprocessing.ipynb or by hand).
-Run this file directly to preprocess every recording.
+Bad channels, bad time spans and recordings to discard are read from bad_segments_channels.csv (filled from 
+preprocessing.ipynb or by hand).
 """
+
+# IMPORTS
 
 import mne
 import os
@@ -19,17 +20,16 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-# ── CONFIGURATION ──────────────────────────────────────────────────────────────
-DIR_EEG         = Path(r"C:\Users\eva\Documents\Master\ICM\Ilo\EEG")
-QC_CSV          = Path(r"C:\Users\eva\Documents\Master\ICM\Ilo\GLHMM\bad_segments_channels.csv")
-RAW_SUFFIX      = ".edf"
-PREPROC_SUFFIX  = "_preprocessed.fif"
+# CONFIGURATION
+DIR_EEG = Path(r"C:\Users\eva\Documents\Master\ICM\Ilo\EEG")
+QC_CSV = Path(r"C:\Users\eva\Documents\Master\ICM\Ilo\GLHMM\bad_segments_channels.csv")
+RAW_SUFFIX = ".edf"
+PREPROC_SUFFIX = "_preprocessed.fif"
 
-# Preprocessing
-L_FREQ     = 1
-H_FREQ     = 40.0
-NOTCH_FREQ = 50.0
-REFERENCE  = "average"
+L_FREQ = 1 # High-frequency filter
+H_FREQ = 40.0 # Low-frequency filter
+NOTCH_FREQ = 50.0 # Notch filter frequency
+REFERENCE  = "average" 
 TARGET_FS  = 100   # Hz: downsampling rate
 
 # Every channel is typed 'eeg' in the EDF header, so the non-EEG ones are retyped by name
@@ -40,30 +40,29 @@ CHANNEL_TYPES = {
     'Right Ring+Pinky': 'misc', 'Right Thumb': 'misc',
 }
 
-HIGH_BAD_THRESHOLD = 0.30  # fraction of bad EEG channels above which the whole recording is discarded
+HIGH_BAD_THRESHOLD = 0.30  # fraction of bad EEG channels above which the whole recording is discarded -> Discards TT003
 
 # Bad time spans: samples where more than BAD_SPAN_CH_FRACTION of the EEG channels exceed +-BAD_SPAN_AMP_UV
-BAD_SPAN_AMP_UV      = 250.0
+BAD_SPAN_AMP_UV = 250.0
 BAD_SPAN_CH_FRACTION = 0.10
-BAD_SPAN_PAD_S       = 1.0   # margin added on each side of a detected span
-BAD_SPAN_LABEL       = "BAD_segment"
+BAD_SPAN_PAD_S = 1.0   # margin added on each side of a detected span
+BAD_SPAN_LABEL = "BAD_segment"
 
 # ICA: removes the ocular and cardiac components, found from the IO and ECG channels
-ICA_SUFFIX       = "_ica.fif"  # fitted ICA (with its excluded components) saved next to the raw file
+ICA_SUFFIX = "_ica.fif"  
 ICA_N_COMPONENTS = 30
-ICA_L_FREQ       = 1.0         # Hz: the ICA is fitted on data high-passed at least this high
-ICA_RANDOM_STATE = 97          # fixed, so that refitting gives the same components
-# ───────────────────────────────────────────────────────────────────────────────
-
+ICA_L_FREQ = 1.0 # high-pass filtering before ICA
+ICA_RANDOM_STATE = 42 # for repeatability
+# The excluded components are only subtracted where they are active (blinks, eye movements), so that the
+# frontal brain activity they also carry during sleep is kept. None: subtract them everywhere (plain ICA)
+ICA_ACTIVE_Z = 4.0 # active where the component exceeds this many robust SDs
+ICA_ACTIVE_PAD_S = 0.5 # margin
+ICA_RAMP_S = 0.5 # length of the 0 -> 1 ramp at the edges, so that no step is introduced
 
 # ── QC TABLE ──────────────────────────────────────────────────────────────────
 
 def load_qc_table(qc_csv):
-    """Load bad_segments_channels.csv, return dict keyed by filename.
-
-    bad_spans is a list of [start_s, end_s] (seconds from the start of the
-    recording), or None when the spans of that file have not been set yet.
-    """
+    """Load bad_segments_channels.csv, return dict keyed by filename."""
     if not os.path.exists(qc_csv):
         return {}
     qc = pd.read_csv(qc_csv)
@@ -72,12 +71,9 @@ def load_qc_table(qc_csv):
         return ast.literal_eval(x) if isinstance(x, str) and x.strip().startswith('[') else default
 
     qc['bad_channels'] = qc['bad_channels'].apply(parse_list, default=[])
+    qc['bad_segment'] = qc['bad_segment'].map({True: True, False: False, 'True': True, 'False': False}).fillna(False)
 
-    qc['bad_segment'] = qc['bad_segment'].map(
-        {True: True, False: False, 'True': True, 'False': False}
-    ).fillna(False)
-
-    if 'bad_spans' not in qc:
+    if 'bad_spans' not in qc: 
         qc['bad_spans'] = None
     qc['bad_spans'] = qc['bad_spans'].apply(parse_list, default=None).astype(object)
 
@@ -86,7 +82,6 @@ def load_qc_table(qc_csv):
 
 def save_qc_entry(qc_csv, filename, bad_channels, bad_segment=False, bad_spans=None):
     """Write (or replace) the row of one file in bad_segments_channels.csv.
-
     bad_spans=None keeps the spans already stored for that file.
     """
     cols = ['filename', 'bad_segment', 'bad_channels', 'bad_spans']
@@ -114,20 +109,38 @@ def load_edf(path, preload=False):
     raw = mne.io.read_raw_edf(path, preload=preload, verbose=False)
     raw.set_channel_types({ch: t for ch, t in CHANNEL_TYPES.items() if ch in raw.ch_names}, verbose=False)
     raw.set_montage('standard_1020', verbose=False)
+    if preload:
+        restore_io(raw, path)
+    return raw
+
+
+def restore_io(raw, path):
+    """Replace the IO channel of a preloaded EDF Raw by the one of the original BrainVision recording.
+
+    The EDF export wrote IO with a wrong scale.
+    """
+    vhdr = Path(path).with_suffix('.vhdr')
+    if 'IO' not in raw.ch_names or not vhdr.exists():
+        return raw
+    io = mne.io.read_raw_brainvision(vhdr, preload=False, verbose=False).get_data(picks=['IO'])[0]
+    # The EDF export pads the end of the recording to a whole second
+    if not 0 <= raw.n_times - len(io) < raw.info['sfreq']:
+        print(f"{Path(path).name}: IO of {vhdr.name} has another length, not restored")
+        return raw
+    raw._data[raw.ch_names.index('IO')] = np.r_[io, np.full(raw.n_times - len(io), io[-1])]
     return raw
 
 
 def detect_bad_channels(raw, high_ratio=3.0, flat_uv=1):
     """Propose bad EEG channels from their amplitude.
 
-    Run it on filtered data that is NOT yet average-referenced. A channel is
-    proposed when its robust SD (MAD-based) is more than `high_ratio` times the
-    median over channels, or below `flat_uv` microvolts.
+    Run it on filtered data that is NOT yet average-referenced. A channel is proposed when its robust SD (MAD-based) is 
+    more than `high_ratio` times the median over channels, or below `flat_uv` microvolts. 
     Returns (list of proposed bad channels, Series of robust SD in microvolts).
     """
     eeg_names = _eeg_names(raw)
-    data = raw.get_data(picks=eeg_names) * 1e6
-    sd = 1.4826 * np.median(np.abs(data - np.median(data, axis=1, keepdims=True)), axis=1)
+    data = raw.get_data(picks=eeg_names) * 1e6 # convert to microvolts
+    sd = 1.4826 * np.median(np.abs(data - np.median(data, axis=1, keepdims=True)), axis=1) 
     robust_sd = pd.Series(sd, index=eeg_names)
     bad = (robust_sd > high_ratio * robust_sd.median()) | (robust_sd < flat_uv)
     return list(robust_sd.index[bad]), robust_sd
@@ -136,9 +149,8 @@ def detect_bad_channels(raw, high_ratio=3.0, flat_uv=1):
 def detect_bad_spans(raw, amp_uv=BAD_SPAN_AMP_UV, ch_fraction=BAD_SPAN_CH_FRACTION, pad_s=BAD_SPAN_PAD_S):
     """Propose bad time spans from the amplitude of the EEG channels.
 
-    Run it on fully preprocessed data (bad channels interpolated, average
-    reference). A sample is bad when more than `ch_fraction` of the EEG
-    channels exceed +-`amp_uv` microvolts; `pad_s` is added on each side.
+    Run it on fully preprocessed data. A sample is bad when more than `ch_fraction` of the EEG channels exceed 
+    +-`amp_uv` microvolts; `pad_s` is added on each side.
     Returns a list of [start_s, end_s], in seconds from the start of `raw`.
     """
     sfreq = raw.info['sfreq']
@@ -176,8 +188,7 @@ def get_bad_spans(raw):
 def interpolate_and_reference(raw, bad_channels=(), montage="standard_1020"):
     """Interpolate bad channels, then re-reference a preloaded Raw in place.
 
-    Non-EEG channels must be dropped or typed correctly beforehand, otherwise
-    they end up in the average reference.
+    Non-EEG channels must be dropped or typed correctly beforehand, otherwise they end up in the average reference.
     """
     bads = [ch for ch in bad_channels if ch in raw.ch_names]
     if bads:
@@ -185,6 +196,8 @@ def interpolate_and_reference(raw, bad_channels=(), montage="standard_1020"):
             raw.set_montage(montage, on_missing='ignore', verbose=False)
         raw.info['bads'] = bads
         raw.interpolate_bads(reset_bads=True, verbose=False)
+    # add the average reference after interpolation, so that the bad channels only affect themselves
+    mne.add_reference_channels(raw, 'Cz') # Add the electrode Cz back as a zero channel
     raw.set_eeg_reference(REFERENCE, projection=False, verbose=False)
     return raw
 
@@ -204,25 +217,61 @@ def _ica_names(raw, bad_channels=()):
 def fit_ica(raw, bad_channels=()):
     """Fit an ICA on the good EEG channels and mark its ocular and cardiac components as excluded.
 
-    Run it on filtered data referenced to the average of the good channels,
-    bad channels NOT yet interpolated, with the bad spans annotated so that
-    they are left out of the fit. The proposal is in `ica.exclude` (detail in
-    `ica.labels_`) and has to be reviewed: during sleep a frontal slow-wave
-    component also correlates with the IO channel.
+    Run it on filtered data referenced to the average of the good channels, bad channels NOT yet interpolated, with the 
+    bad spans annotated so that they are left out of the fit. The proposal is in `ica.exclude` (detail in `ica.labels_`)
+    and has to be reviewed: during sleep a frontal slow-wave component also correlates with the IO channel.
     """
     picks = _ica_names(raw, bad_channels)
     raw_fit = raw if L_FREQ >= ICA_L_FREQ else raw.copy().filter(ICA_L_FREQ, None, picks=picks, verbose=False)
     ica = mne.preprocessing.ICA(n_components=ICA_N_COMPONENTS, random_state=ICA_RANDOM_STATE, max_iter='auto')
     ica.fit(raw_fit, picks=picks, verbose=False)
+    return find_artifact_components(ica, raw_fit)
 
+
+def find_artifact_components(ica, raw):
+    """Set `ica.exclude` to the components correlated with IO (ocular) or time-locked to ECG (cardiac)."""
     exclude = []
     ch_types = raw.get_channel_types()
     if 'eog' in ch_types:
-        exclude += ica.find_bads_eog(raw_fit, verbose=False)[0]
+        exclude += ica.find_bads_eog(raw, verbose=False)[0]
     if 'ecg' in ch_types:
-        exclude += ica.find_bads_ecg(raw_fit, verbose=False)[0]
+        exclude += ica.find_bads_ecg(raw, verbose=False)[0]
     ica.exclude = sorted(set(int(i) for i in exclude))
     return ica
+
+
+def remove_ica_artifacts(raw, ica, z=ICA_ACTIVE_Z, pad_s=ICA_ACTIVE_PAD_S, ramp_s=ICA_RAMP_S):
+    """Subtract the components in `ica.exclude` from a preloaded Raw in place, only where they are active.
+
+    A component is active where its time course exceeds `z` robust SDs (MAD-based), widened by `pad_s` on each side; its 
+    weight ramps between 0 and 1 over `ramp_s`. With z=None the components are subtracted everywhere.
+    Returns {component: fraction of the recording where it was subtracted}.
+    """
+    if z is None:
+        ica.apply(raw, verbose=False)
+        return {k: 1.0 for k in ica.exclude}
+    sfreq = raw.info['sfreq']
+    idx = [raw.ch_names.index(ch) for ch in ica.ch_names]
+    data = raw.get_data(picks=idx)
+    sources = ica.get_sources(raw).get_data()
+    pad = int(round(pad_s * sfreq))
+    ramp = np.hanning(int(round(ramp_s * sfreq)) + 1)
+    ramp /= ramp.sum()
+
+    removed = {}
+    for k in ica.exclude:
+        s = sources[k] - np.median(sources[k])
+        active = np.abs(s) > z * 1.4826 * np.median(np.abs(s))
+        active = np.convolve(active, np.ones(2 * pad + 1), mode='same') > 0
+        weight = np.clip(np.convolve(active, ramp, mode='same'), 0, 1)
+        # Contribution of component k alone to the channels, from the original data
+        ica_k = ica.copy()
+        ica_k.exclude = [k]
+        artifact = raw.get_data(picks=idx) - ica_k.apply(raw.copy(), verbose=False).get_data(picks=idx)
+        data -= weight * artifact
+        removed[k] = float(weight.mean())
+    raw._data[idx] = data
+    return removed
 
 
 def load_ica(path_ica, raw, bad_channels=()):
@@ -244,9 +293,9 @@ def preprocess_raw(raw, bad_channels=(), montage="standard_1020"):
 def preprocess_recording(raw, bad_channels=(), bad_spans=None, ica=None):
     """Full preprocessing of one preloaded raw recording, in place.
 
-    Filter, downsample, remove the excluded ICA components (ICA fitted here
-    when `ica` is None), interpolate `bad_channels`, average reference, then
-    annotate the bad spans (detected automatically when `bad_spans` is None).
+    Filter, downsample, subtract the excluded ICA components where they are active (ICA fitted here when `ica` is None), 
+    interpolate `bad_channels`, average reference, then annotate the bad spans (detected automatically when `bad_spans` 
+    is None).
     Returns (raw, bad_spans, ica).
     """
     filter_raw(raw)
@@ -259,7 +308,7 @@ def preprocess_recording(raw, bad_channels=(), bad_spans=None, ica=None):
         # ICA only models artifacts with a fixed topography: the large irregular ones are kept out of the fit
         set_bad_spans(raw, bad_spans if bad_spans is not None else detect_bad_spans(raw))
         ica = fit_ica(raw, bad_channels)
-    ica.apply(raw, verbose=False)
+    remove_ica_artifacts(raw, ica)
     interpolate_and_reference(raw, bad_channels)
     if bad_spans is None:
         bad_spans = detect_bad_spans(raw)
