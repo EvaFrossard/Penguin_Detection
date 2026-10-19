@@ -1,9 +1,9 @@
 """
 Full EEG preprocessing pipeline
 ===============================
-- Load the raw recordings (EEG/<name>_filtered.edf, 500 Hz)
-- Notch + band-pass filter, downsample, remove the ocular and cardiac ICA components, interpolate bad channels, average 
-reference
+- Load the raw recordings (EEG/<name>.edf, 500 Hz, referenced to Cz)
+- Notch + band-pass filter, downsample, add Cz back, remove the ocular and cardiac ICA components, interpolate bad
+channels, average reference
 - Mark bad time spans as 'BAD_segment' annotations
 - Save the result next to the raw file as EEG/<name>_preprocessed.fif
 
@@ -16,6 +16,7 @@ preprocessing.ipynb or by hand).
 import mne
 import os
 import ast
+import shutil
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -26,10 +27,11 @@ QC_CSV = Path(r"C:\Users\eva\Documents\Master\ICM\Ilo\GLHMM\bad_segments_channel
 RAW_SUFFIX = ".edf"
 PREPROC_SUFFIX = "_preprocessed.fif"
 
-L_FREQ = 1 # High-frequency filter
+L_FREQ = 0.3 # High-frequency filter
 H_FREQ = 40.0 # Low-frequency filter
 NOTCH_FREQ = 50.0 # Notch filter frequency
-REFERENCE  = "average" 
+REFERENCE  = "average"
+REF_CHANNEL = "Cz"  # recording reference: absent from the files, added back as a zero channel before re-referencing
 TARGET_FS  = 100   # Hz: downsampling rate
 
 # Every channel is typed 'eeg' in the EDF header, so the non-EEG ones are retyped by name
@@ -131,14 +133,27 @@ def restore_io(raw, path):
     return raw
 
 
+def add_reference_channel(raw, montage="standard_1020"):
+    """Add the recording reference (REF_CHANNEL) back to a preloaded Raw as a zero channel, in place.
+
+    Run it while the data are still referenced to it, i.e. before any re-referencing: the average
+    reference then turns it into a real signal. Does nothing when the channel is already there.
+    """
+    if REF_CHANNEL not in raw.ch_names:
+        mne.add_reference_channels(raw, REF_CHANNEL, copy=False)
+        raw.set_montage(montage, verbose=False)  # gives it its electrode position
+    return raw
+
+
 def detect_bad_channels(raw, high_ratio=3.0, flat_uv=1):
     """Propose bad EEG channels from their amplitude.
 
-    Run it on filtered data that is NOT yet average-referenced. A channel is proposed when its robust SD (MAD-based) is 
-    more than `high_ratio` times the median over channels, or below `flat_uv` microvolts. 
+    Run it on filtered data that is NOT yet average-referenced. A channel is proposed when its robust SD (MAD-based) is
+    more than `high_ratio` times the median over channels, or below `flat_uv` microvolts. The reference channel is
+    left out: it is flat until the data are re-referenced.
     Returns (list of proposed bad channels, Series of robust SD in microvolts).
     """
-    eeg_names = _eeg_names(raw)
+    eeg_names = [ch for ch in _eeg_names(raw) if ch != REF_CHANNEL]
     data = raw.get_data(picks=eeg_names) * 1e6 # convert to microvolts
     sd = 1.4826 * np.median(np.abs(data - np.median(data, axis=1, keepdims=True)), axis=1) 
     robust_sd = pd.Series(sd, index=eeg_names)
@@ -197,7 +212,6 @@ def interpolate_and_reference(raw, bad_channels=(), montage="standard_1020"):
         raw.info['bads'] = bads
         raw.interpolate_bads(reset_bads=True, verbose=False)
     # add the average reference after interpolation, so that the bad channels only affect themselves
-    mne.add_reference_channels(raw, 'Cz') # Add the electrode Cz back as a zero channel
     raw.set_eeg_reference(REFERENCE, projection=False, verbose=False)
     return raw
 
@@ -279,7 +293,10 @@ def load_ica(path_ica, raw, bad_channels=()):
     if not os.path.exists(path_ica):
         return None
     ica = mne.preprocessing.read_ica(path_ica, verbose=False)
-    return ica if ica.ch_names == _ica_names(raw, bad_channels) else None
+    expected = _ica_names(raw, bad_channels)
+    if REF_CHANNEL not in raw.ch_names:  # added at the end by add_reference_channel before the ICA is applied
+        expected.append(REF_CHANNEL)
+    return ica if ica.ch_names == expected else None
 
 
 def preprocess_raw(raw, bad_channels=(), montage="standard_1020"):
@@ -300,6 +317,7 @@ def preprocess_recording(raw, bad_channels=(), bad_spans=None, ica=None):
     """
     filter_raw(raw)
     raw.resample(TARGET_FS, verbose=False)  # after the low-pass, so nothing aliases
+    add_reference_channel(raw)  # Cz, while the data are still referenced to it
     # Average over the good channels only. Without it the ICA isolates the recording reference as a
     # component present on every channel, which correlates with IO and hides the ocular ones
     raw.info['bads'] = [ch for ch in bad_channels if ch in raw.ch_names]
@@ -317,7 +335,7 @@ def preprocess_recording(raw, bad_channels=(), bad_spans=None, ica=None):
 
 
 def preprocess_all(data_dir=DIR_EEG, qc_csv=QC_CSV):
-    """Preprocess every raw recording of `data_dir` and save it next to it as *_preproc_raw.fif.
+    """Preprocess every raw recording of `data_dir` and save it next to it as *_preprocessed.fif.
 
     Recordings flagged bad_segment in the QC table are skipped. Spans detected
     automatically are written back to the QC table so they can be reviewed.
@@ -359,6 +377,53 @@ def preprocess_all(data_dir=DIR_EEG, qc_csv=QC_CSV):
               f"{len(bad_spans)} bad span(s) = {bad_s:.0f} s ({bad_s / raw.times[-1]:.1%}, "
               f"{'from the QC table' if spans_reviewed else 'detected automatically'})")
         del raw
+
+
+def refresh_qc_table(data_dir=DIR_EEG, qc_csv=QC_CSV, files=None):
+    """Rebuild bad_segments_channels.csv for every raw recording of `data_dir` (or only the names in `files`).
+
+    The bad channels of a recording are the automatic proposal of detect_bad_channels plus those already in
+    the table, including the rows of the old '<name>_filtered.edf' / '<name>_a_filtered.edf' files, which
+    are dropped. bad_segment is kept when it was set, and set when more than HIGH_BAD_THRESHOLD of the EEG
+    channels are bad. The bad spans are cleared, so that preprocess_all detects them again on the
+    preprocessed data. The previous table is kept as *_backup.csv. Review the proposals by eye
+    (preprocessing.ipynb) before relying on them.
+    """
+    data_dir, qc_csv = Path(data_dir), Path(qc_csv)
+    paths = sorted(data_dir.glob(f"*{RAW_SUFFIX}")) if files is None else [data_dir / f for f in files]
+    old = load_qc_table(qc_csv)
+    if qc_csv.exists():
+        shutil.copy(qc_csv, qc_csv.with_name(qc_csv.stem + '_backup.csv'))
+
+    new, replaced = {}, set()
+    for path in paths:
+        stem = path.name[:-len(RAW_SUFFIX)]
+        keys = [k for k in (path.name, f'{stem}_filtered.edf', f'{stem}_a_filtered.edf') if k in old]
+        replaced.update(keys)
+        bad_channels = sorted(set().union(*[old[k]['bad_channels'] for k in keys]))
+        bad_segment = any(old[k]['bad_segment'] for k in keys)
+        if bad_segment:
+            print(f"{path.name}: flagged as bad recording, kept as is")
+        else:
+            raw = load_edf(path, preload=True)
+            filter_raw(raw)
+            raw.resample(TARGET_FS, verbose=False)
+            auto, _ = detect_bad_channels(raw)
+            eeg_names = _eeg_names(raw)
+            bad_channels = [ch for ch in eeg_names if ch in auto or ch in bad_channels]
+            bad_segment = len(bad_channels) / len(eeg_names) > HIGH_BAD_THRESHOLD
+            print(f"{path.name}: {bad_channels} (automatic {auto}, already in the table "
+                  f"{sorted(set(bad_channels) - set(auto))}){', bad recording' if bad_segment else ''}")
+            del raw
+        new[path.name] = [path.name, bad_segment, str(bad_channels), np.nan]
+
+    kept = [[k, v['bad_segment'], str(v['bad_channels']),
+             np.nan if v['bad_spans'] is None else str(v['bad_spans'])] for k, v in old.items() if k not in replaced]
+    cols = ['filename', 'bad_segment', 'bad_channels', 'bad_spans']
+    table = pd.DataFrame(kept + list(new.values()), columns=cols).sort_values('filename')
+    table.to_csv(qc_csv, index=False)
+    print(f"\n{qc_csv.name}: {len(new)} recording(s) updated, {len(replaced - set(new))} old row(s) dropped, "
+          f"bad spans cleared (previous table in {qc_csv.stem}_backup.csv)")
 
 
 if __name__ == "__main__":
