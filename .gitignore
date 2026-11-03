@@ -24,3 +24,4 @@ Scoring_Pingouin/*_auto_presses.csv
 /EEG
 /Pilote_Eva
 /GLHMM/outputs/Y_prep_full_eeg.npy
+/GLHMM/outputs
