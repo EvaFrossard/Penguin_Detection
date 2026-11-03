@@ -1,27 +1,8 @@
 /.claude
 /Claude outputs
-/Feuille de Route.xlsx
-/Mémoire1 M1.pdf
-/TT001
-/TT002
-/TT003
-/TT004
-/TT005
-/TT006
-/TT007
-/TT008
-/TT009
-/TT010
-/TT011
-/TT012
 __pycache__/
 *.pyc
-Scoring_Pingouin/*_signal_cache.npz
-Scoring_Pingouin/*_state.json
-Scoring_Pingouin/*_auto_presses.csv
-/plots
-/GAMM/output
-/EEG
-/Pilote_Eva
-/GLHMM/outputs/Y_prep_full_eeg.npy
-/GLHMM/outputs
+/Data
+/Outputs
+/GLHMM
+/Mémoire1 M1.pdf

@@ -1,14 +1,16 @@
-subject,file,start,end,crop_start_s,duration_min
-TT001,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT001_filtered.edf,0,120000,5044.502,20.0
-TT002,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT002_filtered.edf,120000,240000,3050.116,20.0
-TT004,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT004_filtered.edf,240000,360000,4177.46,20.0
-TT005,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT005_filtered.edf,360000,480000,5465.768,20.0
-TT006,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT006_filtered.edf,480000,600000,3004.666,20.0
-TT007,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT007_filtered.edf,600000,720000,3342.324,20.0
-TT008,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT008_filtered.edf,720000,840000,5245.434,20.0
-TT009,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT009_filtered.edf,840000,960000,4063.002,20.0
-TT010,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT010_filtered.edf,960000,1080000,4063.358,20.0
-TT011,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT011_filtered.edf,1080000,1200000,4698.744,20.0
-TT012,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT012_filtered.edf,1200000,1320000,3313.128,20.0
-TT013,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT013_a_filtered.edf,1320000,1440000,5070.866,20.0
-TT014,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT014_a_filtered.edf,1440000,1560000,3473.58,20.0
+subject,file,start,end,crop_start_s,duration_min,bad_s,bad_spans
+TT001,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT001_preprocessed.fif,0,188166,3033.152,31.4,0.0,[]
+TT002,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT002_preprocessed.fif,188166,296970,1864.574,18.1,0.0,[]
+TT004,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT004_preprocessed.fif,296970,438668,2633.054,23.6,0.0,[]
+TT005,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT005_preprocessed.fif,438668,618120,3528.884,29.9,2.1,"[(np.float64(1231.9700979999998), np.float64(1234.0701956562498))]"
+TT006,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT006_preprocessed.fif,618120,701009,2091.29,13.8,5.1,"[(np.float64(139.00003900000002), np.float64(144.14994134375002))]"
+TT007,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT007_preprocessed.fif,701009,791286,2312.452,15.0,0.0,[]
+TT008,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT008_preprocessed.fif,791286,989049,3117.18,33.0,6.2,"[(np.float64(1831.670098), np.float64(1835.73992221875)), (np.float64(1865.3800590000005), np.float64(1867.4801566562505))]"
+TT009,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT009_preprocessed.fif,989049,1114082,2661.852,20.8,6.3,"[(np.float64(496.44003900000007), np.float64(499.19003900000007)), (np.float64(1151.67002), np.float64(1154.139990703125)), (np.float64(1249.2898930000001), np.float64(1250.32))]"
+TT011,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT011_preprocessed.fif,1114082,1308570,2585.444,32.4,0.0,[]
+TT012,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT012_preprocessed.fif,1308570,1363719,2676.804,9.2,0.0,[]
+TT013,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT013_preprocessed.fif,1363719,1558667,2889.734,32.5,29.6,"[(np.float64(666.8500779999999), np.float64(669.9199022187499)), (np.float64(778.8500779999999), np.float64(785.9499315156249)), (np.float64(925.24998), np.float64(927.830058125)), (np.float64(1062.969951), np.float64(1065.100077953125)), (np.float64(1167.78001), np.float64(1170.00999046875)), (np.float64(1435.169902), np.float64(1440.249980125)), (np.float64(1581.0600390000004), np.float64(1583.1498827500004)), (np.float64(1608.850078), np.float64(1611.109843625)), (np.float64(1616.029766), np.float64(1619.1401175625))]"
+TT014,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT014_preprocessed.fif,1558667,1633160,2614.05,12.4,2.5,"[(np.float64(38.210009999999784), np.float64(40.740039296874784))]"
+TT015,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT015_preprocessed.fif,1633160,1799162,2818.456,27.7,55.4,"[(np.float64(174.68990200000007), np.float64(177.02998989062507)), (np.float64(585.459922), np.float64(587.7499610625)), (np.float64(677.76998), np.float64(681.78999953125)), (np.float64(735.3700779999999), np.float64(741.2199315156249)), (np.float64(762.6501069999999), np.float64(768.7199312187499)), (np.float64(861.02999), np.float64(865.499960703125)), (np.float64(889.459922), np.float64(893.150107546875)), (np.float64(951.209922), np.float64(956.110068484375)), (np.float64(1225.870078), np.float64(1230.039999875)), (np.float64(1282.549766), np.float64(1288.76021521875)), (np.float64(1512.56002), np.float64(1516.5102153125)), (np.float64(1517.01998), np.float64(1519.600058125)), (np.float64(1531.4101170000004), np.float64(1534.1899021562504)), (np.float64(1554.7001559999999), np.float64(1556.8100192812499))]"
+TT017,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT017_preprocessed.fif,1799162,1839658,3037.16,6.7,0.0,[]
+TT018,C:\Users\eva\Documents\Master\ICM\Ilo\EEG\TT018_preprocessed.fif,1839658,2034421,2721.954,32.5,29.9,"[(np.float64(63.20991200000026), np.float64(67.86005848437526)), (np.float64(95.17011700000012), np.float64(98.26997051562512)), (np.float64(107.38007800000014), np.float64(111.00996081250014)), (np.float64(190.21992200000022), np.float64(194.52998059375022)), (np.float64(399.4799320000002), np.float64(402.5199710625002)), (np.float64(408.2299320000002), np.float64(412.7699710625002)), (np.float64(471.3700680000002), np.float64(473.9101070625002)), (np.float64(1803.150098), np.float64(1805.1901370625)), (np.float64(1805.460156), np.float64(1807.559765375))]"
