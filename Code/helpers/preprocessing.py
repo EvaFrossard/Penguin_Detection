@@ -2,8 +2,8 @@
 Full EEG preprocessing pipeline
 ===============================
 - Load the raw recordings (EEG/<name>.edf, 500 Hz, referenced to Cz)
-- Notch + band-pass filter, downsample, add Cz back, remove the ocular and cardiac ICA components, interpolate bad
-channels, average reference
+- Notch + band-pass filter, downsample, add Cz back, remove the cardiac ICA components (and the ocular ones if
+ICA_REMOVE_OCULAR), interpolate bad channels, average reference
 - Mark bad time spans as 'BAD_segment' annotations
 - Save the result next to the raw file as EEG/<name>_preprocessed.fif
 
@@ -27,8 +27,8 @@ QC_CSV = Path(r"C:\Users\eva\Documents\Master\ICM\Ilo\GLHMM\bad_segments_channel
 RAW_SUFFIX = ".edf"
 PREPROC_SUFFIX = "_preprocessed.fif"
 
-L_FREQ = 0.3 # High-frequency filter
-H_FREQ = 40.0 # Low-frequency filter
+L_FREQ = 1.0 # High-frequency filter
+H_FREQ = 32.0 # Low-frequency filter
 NOTCH_FREQ = 50.0 # Notch filter frequency
 REFERENCE  = "average"
 REF_CHANNEL = "Cz"  # recording reference: absent from the files, added back as a zero channel before re-referencing
@@ -50,8 +50,11 @@ BAD_SPAN_CH_FRACTION = 0.10
 BAD_SPAN_PAD_S = 1.0   # margin added on each side of a detected span
 BAD_SPAN_LABEL = "BAD_segment"
 
-# ICA: removes the ocular and cardiac components, found from the IO and ECG channels
-ICA_SUFFIX = "_ica.fif"  
+# ICA: removes the cardiac components (found from the ECG channel) and, if ICA_REMOVE_OCULAR, the ocular ones (from IO)
+ICA_SUFFIX = "_ica.fif"
+# False: the ocular components are kept. The analysed Nap1 windows are recorded with the eyes closed, and the slow eye
+# movements of sleep onset are part of what is studied. Also applied to the saved ICAs, whose files are left unchanged
+ICA_REMOVE_OCULAR = False
 ICA_N_COMPONENTS = 30
 ICA_L_FREQ = 1.0 # high-pass filtering before ICA
 ICA_RANDOM_STATE = 42 # for repeatability
@@ -243,14 +246,20 @@ def fit_ica(raw, bad_channels=()):
 
 
 def find_artifact_components(ica, raw):
-    """Set `ica.exclude` to the components correlated with IO (ocular) or time-locked to ECG (cardiac)."""
-    exclude = []
+    """Set `ica.exclude` to the components time-locked to ECG (cardiac) and, if ICA_REMOVE_OCULAR, those correlated
+    with IO (ocular). Both are found and kept in `ica.labels_`, so that the choice can be changed later."""
     ch_types = raw.get_channel_types()
     if 'eog' in ch_types:
-        exclude += ica.find_bads_eog(raw, verbose=False)[0]
+        ica.find_bads_eog(raw, verbose=False)
     if 'ecg' in ch_types:
-        exclude += ica.find_bads_ecg(raw, verbose=False)[0]
-    ica.exclude = sorted(set(int(i) for i in exclude))
+        ica.find_bads_ecg(raw, verbose=False)
+    return _set_exclude(ica)
+
+
+def _set_exclude(ica):
+    """Set `ica.exclude` from the automatic labels in `ica.labels_`, following ICA_REMOVE_OCULAR."""
+    kinds = ['ecg', 'eog'] if ICA_REMOVE_OCULAR else ['ecg']
+    ica.exclude = sorted({int(i) for kind in kinds for i in ica.labels_.get(kind, [])})
     return ica
 
 
@@ -289,14 +298,21 @@ def remove_ica_artifacts(raw, ica, z=ICA_ACTIVE_Z, pad_s=ICA_ACTIVE_PAD_S, ramp_
 
 
 def load_ica(path_ica, raw, bad_channels=()):
-    """Read a saved ICA. Returns None when there is none, or when it was fitted on other channels."""
+    """Read a saved ICA. Returns None when there is none, or when it was fitted on other channels.
+    Without ICA_REMOVE_OCULAR, the automatically labelled ocular components are taken out of its `exclude` (unless also
+    labelled cardiac); components excluded by hand are kept."""
     if not os.path.exists(path_ica):
         return None
     ica = mne.preprocessing.read_ica(path_ica, verbose=False)
     expected = _ica_names(raw, bad_channels)
     if REF_CHANNEL not in raw.ch_names:  # added at the end by add_reference_channel before the ICA is applied
         expected.append(REF_CHANNEL)
-    return ica if ica.ch_names == expected else None
+    if ica.ch_names != expected:
+        return None
+    if not ICA_REMOVE_OCULAR:
+        ocular = set(ica.labels_.get('eog', [])) - set(ica.labels_.get('ecg', []))
+        ica.exclude = [k for k in ica.exclude if k not in ocular]
+    return ica
 
 
 def preprocess_raw(raw, bad_channels=(), montage="standard_1020"):
@@ -377,6 +393,8 @@ def preprocess_all(data_dir=DIR_EEG, qc_csv=QC_CSV):
               f"{len(bad_spans)} bad span(s) = {bad_s:.0f} s ({bad_s / raw.times[-1]:.1%}, "
               f"{'from the QC table' if spans_reviewed else 'detected automatically'})")
         del raw
+    print(f"\nPreprocessed {len(files)} recording(s) in {data_dir}")
+
 
 
 def refresh_qc_table(data_dir=DIR_EEG, qc_csv=QC_CSV, files=None):
