@@ -133,14 +133,14 @@ def band_power_envelopes(X, fs, ch_names, REGIONS, BANDS, FS_ENV=10, ENV_SMOOTH_
     """(n_times, n_channels) EEG -> (n_times_env, n_regions * n_bands) log band envelopes."""
     prefix = [c.rstrip('0123456789z') for c in ch_names] # remove trailing characters 
     region_idx = {r: [i for i, pr in enumerate(prefix) if pr in pre] for r, pre in REGIONS.items()}
-    step = int(fs / FS_ENV)
+    step = int(fs / FS_ENV) 
     feats = []
     for lo, hi in BANDS.values():
         sos = signal.butter(4, (lo, hi), 'bandpass', output='sos', fs=fs)
         env = np.abs(signal.hilbert(signal.sosfiltfilt(sos, X, axis=0), axis=0))
         for idx in region_idx.values():
             e = np.median(env[:, idx], axis=1)  # median over channels: robust to a single bad electrode
-            e = uniform_filter1d(e, int(ENV_SMOOTH_S * fs), mode='nearest')[step // 2::step]
+            e = uniform_filter1d(e, int(ENV_SMOOTH_S * fs), mode='nearest')[step // 2::step] # smoothing and decimation
             feats.append(np.log(e))
     return np.column_stack(feats)
 
@@ -384,7 +384,7 @@ def load_data(BANDS, REGIONS, EXPERIMENT_STAGE = 'Nap1', NAP_DURATION_MIN = 30, 
     """Load and prepare the EEG, physiological and behavioural features for the HMM.
     The result is cached in OUT_DIR/<TAG>/<TAG>.pkl with the parameters it was computed with, and recomputed when they differ.
     Returns Y_prep, indices_prep, indices, sessions_meta, fs (rate of the raw EEG), fs_prep (rate of Y_prep), ch_names,
-    feature_names."""
+    feature_names, TAG."""
 
     # Every parameter the result depends on. Those of a physiological / behavioural feature only count when it is added
     params = dict(EXPERIMENT_STAGE=EXPERIMENT_STAGE, FULL_STAGE=FULL_STAGE, NAP_DURATION_MIN=NAP_DURATION_MIN,
@@ -417,6 +417,12 @@ def load_data(BANDS, REGIONS, EXPERIMENT_STAGE = 'Nap1', NAP_DURATION_MIN = 30, 
     if isinstance(cached, dict) and cached.get('params') == params:
         print(f'Loading the cached data from {cache_file}')
         data = cached['data']
+        # Backward compatibility: older caches stored 8 values and omitted TAG.
+        if isinstance(data, tuple) and len(data) == 8:
+            data = (*data, TAG)
+            cached['data'] = data
+            pd.to_pickle(cached, cache_file)
+            print('Updated the cached data to include the current TAG return value')
     else:
         if cached is not None:
             print(f'{cache_file} was computed with other parameters: recomputing')
@@ -602,7 +608,7 @@ def load_data(BANDS, REGIONS, EXPERIMENT_STAGE = 'Nap1', NAP_DURATION_MIN = 30, 
                     Y_prep, indices_prep, indices, sessions_meta, feature_names, behav_feat, BEHAV_FEATURES, 'fewer than 2 IRT intervals', VERBOSE=VERBOSE, log=log)
 
         # Save the preprocessed data with its parameters, to avoid re-running the long load_eeg_data step
-        data = (Y_prep, indices_prep, indices, sessions_meta, fs, fs_prep, ch_names, feature_names)
+        data = (Y_prep, indices_prep, indices, sessions_meta, fs, fs_prep, ch_names, feature_names, TAG)
         pd.to_pickle({'params': params, 'data': data}, cache_file)
         print(f'Saved to {cache_file}')
     return data
